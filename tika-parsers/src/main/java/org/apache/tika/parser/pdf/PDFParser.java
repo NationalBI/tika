@@ -114,14 +114,14 @@ public class PDFParser extends AbstractParser implements Initializable {
      * @deprecated Supply a {@link PasswordProvider} on the {@link ParseContext} instead
      */
     public static final String PASSWORD = "org.apache.tika.parser.pdf.password";
-    private static final MediaType MEDIA_TYPE = MediaType.application("pdf");
+    protected static final MediaType MEDIA_TYPE = MediaType.application("pdf");
     /**
      * Serial version UID
      */
     private static final long serialVersionUID = -752276948656079347L;
     private static final Set<MediaType> SUPPORTED_TYPES =
             Collections.singleton(MEDIA_TYPE);
-    private PDFParserConfig defaultConfig = new PDFParserConfig();
+    protected PDFParserConfig defaultConfig = new PDFParserConfig();
     private InitializableProblemHandler initializableProblemHandler = null;
 
     public Set<MediaType> getSupportedTypes(ParseContext context) {
@@ -139,43 +139,9 @@ public class PDFParser extends AbstractParser implements Initializable {
         }
 
         PDDocument pdfDocument = null;
-
-        String password = "";
         try {
-            TikaInputStream tstream = TikaInputStream.cast(stream);
-            password = getPassword(metadata, context);
-            MemoryUsageSetting memoryUsageSetting = MemoryUsageSetting.setupMainMemoryOnly();
-            if (localConfig.getMaxMainMemoryBytes() >= 0) {
-                memoryUsageSetting = MemoryUsageSetting.setupMixed(localConfig.getMaxMainMemoryBytes());
-            }
-            if (tstream != null && tstream.hasFile()) {
-                // File based -- send file directly to PDFBox
-                pdfDocument = PDDocument.load(tstream.getPath().toFile(), password, memoryUsageSetting);
-            } else {
-                pdfDocument = PDDocument.load(new CloseShieldInputStream(stream), password, memoryUsageSetting);
-            }
-            metadata.set(PDF.IS_ENCRYPTED, Boolean.toString(pdfDocument.isEncrypted()));
-
-            metadata.set(Metadata.CONTENT_TYPE, MEDIA_TYPE.toString());
-            extractMetadata(pdfDocument, metadata, context);
-            AccessChecker checker = localConfig.getAccessChecker();
-            checker.check(metadata);
-            if (handler != null) {
-                if (shouldHandleXFAOnly(pdfDocument, localConfig)) {
-                    handleXFAOnly(pdfDocument, handler, metadata, context);
-                } else if (localConfig.getOcrStrategy().equals(PDFParserConfig.OCR_STRATEGY.OCR_ONLY)) {
-                    metadata.add("X-Parsed-By", TesseractOCRParser.class.toString());
-                    OCR2XHTML.process(pdfDocument, handler, context, metadata, localConfig);
-                } else {
-                    if (localConfig.getOcrStrategy().equals(PDFParserConfig.OCR_STRATEGY.OCR_AND_TEXT_EXTRACTION)) {
-                        metadata.add("X-Parsed-By", TesseractOCRParser.class.toString());
-                    }
-                    PDF2XHTML.process(pdfDocument, handler, context, metadata, localConfig);
-                }
-            }
-        } catch (InvalidPasswordException e) {
-            metadata.set(PDF.IS_ENCRYPTED, "true");
-            throw new EncryptedDocumentException(e);
+            pdfDocument = loadDocument(stream, metadata, context, localConfig);
+            processMetadataAndDocument(pdfDocument, handler, metadata, context, localConfig);
         } finally {
             if (pdfDocument != null) {
                 pdfDocument.close();
@@ -183,7 +149,71 @@ public class PDFParser extends AbstractParser implements Initializable {
         }
     }
 
-    private String getPassword(Metadata metadata, ParseContext context) {
+    protected PDDocument loadDocument(InputStream stream, Metadata metadata, ParseContext context,
+                                      PDFParserConfig localConfig)
+            throws EncryptedDocumentException, IOException {
+
+        final TikaInputStream tstream = TikaInputStream.cast(stream);
+        final String password = getPassword(metadata, context);
+        final MemoryUsageSetting memoryUsageSetting = (
+                localConfig.getMaxMainMemoryBytes() >= 0 ?
+                    MemoryUsageSetting.setupMixed(localConfig.getMaxMainMemoryBytes()) :
+                    MemoryUsageSetting.setupMainMemoryOnly());
+        try {
+            if (tstream != null && tstream.hasFile()) {
+                // File based -- send file directly to PDFBox
+                return PDDocument.load(tstream.getPath().toFile(), password, memoryUsageSetting);
+            } else {
+                return PDDocument.load(new CloseShieldInputStream(stream), password, memoryUsageSetting);
+            }
+        } catch (InvalidPasswordException e) {
+            metadata.set(PDF.IS_ENCRYPTED, "true");
+            throw new EncryptedDocumentException(e);
+        }
+    }
+
+    protected void processMetadataAndDocument(PDDocument pdfDocument, ContentHandler handler, Metadata metadata,
+                                              ParseContext context, PDFParserConfig localConfig)
+            throws IOException, SAXException, TikaException {
+
+        setBasicMetadata(metadata, pdfDocument);
+        extractMetadata(pdfDocument, metadata, context);
+        AccessChecker checker = localConfig.getAccessChecker();
+        checker.check(metadata);
+        if (handler != null) {
+            processDocument(pdfDocument, handler, metadata, context, localConfig);
+        }
+    }
+
+    protected void setBasicMetadata(Metadata metadata, PDDocument pdfDocument) {
+        metadata.set(Metadata.CONTENT_TYPE, MEDIA_TYPE.toString());
+        metadata.set(PDF.IS_ENCRYPTED, Boolean.toString(pdfDocument.isEncrypted()));
+    }
+
+    protected void processDocument(PDDocument pdfDocument, ContentHandler handler, Metadata metadata,
+                                   ParseContext context, PDFParserConfig localConfig)
+            throws IOException, SAXException, TikaException {
+
+        if (shouldHandleXFAOnly(pdfDocument, localConfig)) {
+            handleXFAOnly(pdfDocument, handler, metadata, context);
+        }
+        else {
+            PDFParserConfig.OCR_STRATEGY ocrStrategy = localConfig.getOcrStrategy();
+
+            if (ocrStrategy.equals(PDFParserConfig.OCR_STRATEGY.OCR_ONLY)) {
+                metadata.add("X-Parsed-By", TesseractOCRParser.class.toString());
+                OCR2XHTML.process(pdfDocument, handler, context, metadata, localConfig);
+            }
+            else {
+                if (ocrStrategy.equals(PDFParserConfig.OCR_STRATEGY.OCR_AND_TEXT_EXTRACTION)) {
+                    metadata.add("X-Parsed-By", TesseractOCRParser.class.toString());
+                }
+                PDF2XHTML.process(pdfDocument, handler, context, metadata, localConfig);
+            }
+        }
+    }
+
+    protected String getPassword(Metadata metadata, ParseContext context) {
         String password = null;
 
         // Did they supply a new style Password Provider?
@@ -205,7 +235,7 @@ public class PDFParser extends AbstractParser implements Initializable {
     }
 
 
-    private void extractMetadata(PDDocument document, Metadata metadata, ParseContext context)
+    protected void extractMetadata(PDDocument document, Metadata metadata, ParseContext context)
             throws TikaException {
 
         //first extract AccessPermissions
@@ -358,7 +388,7 @@ public class PDFParser extends AbstractParser implements Initializable {
      * @param pdfBoxBaseline
      * @param schema
      */
-    private void extractMultilingualItems(Metadata metadata, Property property,
+    protected void extractMultilingualItems(Metadata metadata, Property property,
                                           String pdfBoxBaseline, XMPSchema schema) {
         //if schema is null, just go with pdfBoxBaseline
         if (schema == null) {
@@ -415,7 +445,7 @@ public class PDFParser extends AbstractParser implements Initializable {
      * @param dc
      * @param metadata
      */
-    private void extractDublinCoreListItems(Metadata metadata, Property property,
+    protected void extractDublinCoreListItems(Metadata metadata, Property property,
                                             String pdfBoxBaseline, XMPSchemaDublinCore dc) {
         //if no dc, add baseline and return
         if (dc == null) {
@@ -452,7 +482,7 @@ public class PDFParser extends AbstractParser implements Initializable {
      * @param name
      * @return list of values or null
      */
-    private List<String> getXMPBagOrSeqList(XMPSchema schema, String name) {
+    protected List<String> getXMPBagOrSeqList(XMPSchema schema, String name) {
         List<String> ret = schema.getBagList(name);
         if (ret == null) {
             ret = schema.getSequenceList(name);
@@ -460,7 +490,7 @@ public class PDFParser extends AbstractParser implements Initializable {
         return ret;
     }
 
-    private void addMetadata(Metadata metadata, Property property, String value) {
+    protected void addMetadata(Metadata metadata, Property property, String value) {
         if (value != null) {
             String decoded = decode(value);
             if (property.isMultiValuePermitted() || metadata.get(property) == null) {
@@ -470,13 +500,13 @@ public class PDFParser extends AbstractParser implements Initializable {
         }
     }
 
-    private void addMetadata(Metadata metadata, String name, String value) {
+    protected void addMetadata(Metadata metadata, String name, String value) {
         if (value != null) {
             metadata.add(name, decode(value));
         }
     }
 
-    private String decode(String value) {
+    protected String decode(String value) {
         if (PDFEncodedStringDecoder.shouldDecode(value)) {
             PDFEncodedStringDecoder d = new PDFEncodedStringDecoder();
             return d.decode(value);
@@ -484,13 +514,13 @@ public class PDFParser extends AbstractParser implements Initializable {
         return value;
     }
 
-    private void addMetadata(Metadata metadata, String name, Calendar value) {
+    protected void addMetadata(Metadata metadata, String name, Calendar value) {
         if (value != null) {
             metadata.set(name, value.getTime().toString());
         }
     }
 
-    private void addMetadata(Metadata metadata, Property property, Calendar value) {
+    protected void addMetadata(Metadata metadata, Property property, Calendar value) {
         if (value != null) {
             metadata.set(property, value.getTime());
         }
@@ -500,7 +530,7 @@ public class PDFParser extends AbstractParser implements Initializable {
      * Used when processing custom metadata entries, as PDFBox won't do
      * the conversion for us in the way it does for the standard ones
      */
-    private void addMetadata(Metadata metadata, String name, COSBase value) {
+    protected void addMetadata(Metadata metadata, String name, COSBase value) {
         if (value instanceof COSArray) {
             for (Object v : ((COSArray) value).toList()) {
                 addMetadata(metadata, name, ((COSBase) v));
@@ -516,7 +546,7 @@ public class PDFParser extends AbstractParser implements Initializable {
     }
 
 
-    private boolean shouldHandleXFAOnly(PDDocument pdDocument, PDFParserConfig config) {
+    protected boolean shouldHandleXFAOnly(PDDocument pdDocument, PDFParserConfig config) {
         if (config.getIfXFAExtractOnlyXFA() &&
             pdDocument.getDocumentCatalog() != null &&
             pdDocument.getDocumentCatalog().getAcroForm() != null &&
@@ -526,7 +556,7 @@ public class PDFParser extends AbstractParser implements Initializable {
         return false;
     }
 
-    private void handleXFAOnly(PDDocument pdDocument, ContentHandler handler,
+    protected void handleXFAOnly(PDDocument pdDocument, ContentHandler handler,
                                Metadata metadata, ParseContext context)
         throws SAXException, IOException, TikaException {
         XFAExtractor ex = new XFAExtractor();
@@ -726,7 +756,7 @@ public class PDFParser extends AbstractParser implements Initializable {
         this.initializableProblemHandler = initializableProblemHandler;
     }
     //can return null!
-    private Document loadDOM(PDMetadata pdMetadata, Metadata metadata, ParseContext context) {
+    protected Document loadDOM(PDMetadata pdMetadata, Metadata metadata, ParseContext context) {
         if (pdMetadata == null) {
             return null;
         }
