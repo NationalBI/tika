@@ -542,8 +542,8 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
         xhtml.endElement("div");
     }
 
-    private void extractHOCROutput(InputStream is, ParseContext parseContext,
-                                   XHTMLContentHandler xhtml) throws TikaException, IOException, SAXException {
+    static void extractHOCROutput(InputStream is, ParseContext parseContext,
+                                  XHTMLContentHandler xhtml) throws TikaException, IOException, SAXException {
         if (parseContext == null) {
             parseContext = new ParseContext();
         }

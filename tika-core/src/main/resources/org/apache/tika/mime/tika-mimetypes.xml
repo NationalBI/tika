@@ -6273,6 +6273,9 @@
     </magic>
     <sub-class-of type="text/plain"/>
   </mime-type>
+  <mime-type type="text/vnd.hocr+html">
+    <glob pattern="*.hocr"/>
+  </mime-type>
   <mime-type type="text/vnd.in3d.3dml">
     <glob pattern="*.3dml"/>
   </mime-type>
