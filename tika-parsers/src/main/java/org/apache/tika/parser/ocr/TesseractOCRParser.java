@@ -135,6 +135,11 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
         else if(!config.getTesseractPath().isEmpty()) {
             env.put(tessdataPrefix, config.getTesseractPath());
         }
+
+        String dir = config.getTesseractWorkingDirectory();
+        if (!dir.isEmpty()) {
+            pb.directory(new File(dir));
+        }
     }
 
     public static boolean hasTesseract(TesseractOCRConfig config) {

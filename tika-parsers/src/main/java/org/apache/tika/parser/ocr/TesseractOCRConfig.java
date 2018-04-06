@@ -54,6 +54,9 @@ public class TesseractOCRConfig implements Serializable {
     // Path to the 'tessdata' folder, which contains language files and config files.
     private String tessdataPath = "";
 
+    // Working directory for Tesseract.
+    private String tesseractWorkingDirectory = "";
+
     // Language dictionary to be used.
     private String language = "eng";
 
@@ -224,6 +227,20 @@ public class TesseractOCRConfig implements Serializable {
             tessdataPath += File.separator;
 
         this.tessdataPath = tessdataPath;
+    }
+
+    /**
+     * @see #setTesseractWorkingDirectory(String path)
+     */
+    public String getTesseractWorkingDirectory() {
+        return tesseractWorkingDirectory;
+    }
+
+    /**
+     * Set the path to the Tesseract working directory.
+     */
+    public void setTesseractWorkingDirectory(String path) {
+        this.tesseractWorkingDirectory = path;
     }
 
     /**
