@@ -125,7 +125,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
         return Collections.emptySet();
     }
 
-    private void setEnv(TesseractOCRConfig config, ProcessBuilder pb) {
+    private static void setEnv(TesseractOCRConfig config, ProcessBuilder pb) {
         String tessdataPrefix = "TESSDATA_PREFIX";
         Map<String, String> env = pb.environment();
 
@@ -137,7 +137,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
         }
     }
 
-    public boolean hasTesseract(TesseractOCRConfig config) {
+    public static boolean hasTesseract(TesseractOCRConfig config) {
         // Fetch where the config says to find Tesseract
         String tesseract = config.getTesseractPath() + getTesseractProg();
 
@@ -153,7 +153,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      
     }
     
-    private boolean hasImageMagick(TesseractOCRConfig config) {
+    private static boolean hasImageMagick(TesseractOCRConfig config) {
         // Fetch where the config says to find ImageMagick Program
         String ImageMagick = getImageMagickPath(config);
 
@@ -171,7 +171,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      
     }
 
-    private String getImageMagickPath(TesseractOCRConfig config) {
+    private static String getImageMagickPath(TesseractOCRConfig config) {
         return config.getImageMagickPath() + getImageMagickProg();
     }
 
@@ -273,7 +273,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      *
      * @deprecated use {@link #parseInline(InputStream, XHTMLContentHandler, ParseContext, TesseractOCRConfig)}
      */
-    public void parseInline(InputStream stream, XHTMLContentHandler xhtml, TesseractOCRConfig config)
+    public static void parseInline(InputStream stream, XHTMLContentHandler xhtml, TesseractOCRConfig config)
             throws IOException, SAXException, TikaException {
         parseInline(stream, xhtml, new ParseContext(), config);
     }
@@ -290,8 +290,8 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      * @throws TikaException
      *
      */
-    public void parseInline(InputStream stream, XHTMLContentHandler xhtml, ParseContext parseContext,
-                            TesseractOCRConfig config)
+    public static void parseInline(InputStream stream, XHTMLContentHandler xhtml, ParseContext parseContext,
+                                   TesseractOCRConfig config)
             throws IOException, SAXException, TikaException {
         // If Tesseract is not on the path with the current config, do not try to run OCR
         // getSupportedTypes shouldn't have listed us as handling it, so this should only
@@ -316,10 +316,10 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      * @throws IOException if an input error occurred
      * @throws TikaException if an exception timed out
      */
-    private void processImage(File streamingObject, TesseractOCRConfig config) throws IOException, TikaException {
+    private static void processImage(File streamingObject, TesseractOCRConfig config) throws IOException, TikaException {
     	
     	// fetch rotation script from resources
-    	InputStream in = getClass().getResourceAsStream("rotation.py");
+    	InputStream in = TesseractOCRParser.class.getResourceAsStream("rotation.py");
     	TemporaryResources tmp = new TemporaryResources();
     	File rotationScript = tmp.createTemporaryFile();
     	Files.copy(in, rotationScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -358,8 +358,8 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
         tmp.close();
     }
     
-    private void parse(TikaInputStream tikaInputStream, File tmpOCROutputFile, ParseContext parseContext,
-                       XHTMLContentHandler xhtml, TesseractOCRConfig config)
+    private static void parse(TikaInputStream tikaInputStream, File tmpOCROutputFile, ParseContext parseContext,
+                              XHTMLContentHandler xhtml, TesseractOCRConfig config)
             throws IOException, SAXException, TikaException {
         File tmpTxtOutput = null;
         try {
@@ -465,7 +465,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      * @throws IOException
      *           if an input error occurred
      */
-    private void doOCR(File input, File output, TesseractOCRConfig config) throws IOException, TikaException {
+    public static void doOCR(File input, File output, TesseractOCRConfig config) throws IOException, TikaException {
         ArrayList<String> cmd = new ArrayList<>(Arrays.asList(
                 config.getTesseractPath() + getTesseractProg(), input.getPath(),  output.getPath(), "-l",
                 config.getLanguage(), "--psm", config.getPageSegMode()
@@ -529,7 +529,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      * @throws IOException
      *           if an input error occurred
      */
-    private void extractOutput(InputStream stream, XHTMLContentHandler xhtml) throws SAXException, IOException {
+    private static void extractOutput(InputStream stream, XHTMLContentHandler xhtml) throws SAXException, IOException {
         xhtml.startElement("div", "class", "ocr");
         try (Reader reader = new InputStreamReader(stream, UTF_8)) {
             char[] buffer = new char[1024];
@@ -558,7 +558,7 @@ public class TesseractOCRParser extends AbstractParser implements Initializable 
      * stream of the given process to not block the process. The stream is closed
      * once fully processed.
      */
-    private void logStream(final String logType, final InputStream stream, final File file) {
+    private static void logStream(final String logType, final InputStream stream, final File file) {
         new Thread() {
             public void run() {
                 Reader reader = new InputStreamReader(stream, UTF_8);
