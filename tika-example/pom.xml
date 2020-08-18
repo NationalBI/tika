@@ -67,7 +67,7 @@
       <artifactId>tika-langdetect</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <dependency>
+    <!--<dependency>
       <groupId>org.apache.tika</groupId>
       <artifactId>tika-core</artifactId>
       <version>${project.version}</version>
@@ -80,7 +80,7 @@
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
-    </dependency>
+    </dependency>-->
     <dependency>
       <groupId>javax.jcr</groupId>
       <artifactId>jcr</artifactId>

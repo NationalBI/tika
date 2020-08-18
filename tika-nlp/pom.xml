@@ -173,7 +173,7 @@
       <version>2.6.5</version>
     </dependency>
     <!-- Test dependencies -->
-    <dependency>
+    <!--<dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>tika-core</artifactId>
       <version>${project.version}</version>
@@ -185,7 +185,7 @@
       <artifactId>mockito-core</artifactId>
       <version>2.15.0</version>
       <scope>test</scope>
-    </dependency>
+    </dependency>-->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
